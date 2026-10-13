@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peak Flow Nomogram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f7f6; --surface: #ffffff; --ink: #14262b; --muted: #5b6f74; --line: #d5dfdd;
+    --accent: #0f766e; --green: #2f9e5b; --amber: #e0a21b; --red: #d6453d;
+    --green-soft: #e3f4ea; --amber-soft: #fbf0d3; --red-soft: #fbe3e1;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1a1d; --surface: #15262a; --ink: #e6f0ee; --muted: #94aaa8; --line: #284146;
+      --accent: #3fc4b4; --green: #4fc283; --amber: #eab94a; --red: #ef6a62;
+      --green-soft: #17372a; --amber-soft: #3a3012; --red-soft: #3d1b1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1a1d; --surface: #15262a; --ink: #e6f0ee; --muted: #94aaa8; --line: #284146;
+    --accent: #3fc4b4; --green: #4fc283; --amber: #eab94a; --red: #ef6a62;
+    --green-soft: #17372a; --amber-soft: #3a3012; --red-soft: #3d1b1a;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5; -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 1rem; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  label, .lbl { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+  input[type=number], select {
+    font: inherit; font-size: 1.05rem; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-height: 44px;
+  }
+  input:focus-visible, select:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; }
+  .row input { flex: 1; min-width: 0; }
+  .row select { width: 84px; flex: none; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+  .seg button { flex: 1; font: inherit; font-size: 1rem; color: var(--muted); background: transparent; border: 0; padding: 10px; min-height: 44px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  .big { font-size: 3rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .big small { font-size: 1rem; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+  .empty { color: var(--muted); margin: 0; }
+  .err { color: var(--red); font-size: 0.9rem; margin: 10px 0 0; }
+  .zones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .zone { border-radius: 8px; padding: 10px; font-variant-numeric: tabular-nums; }
+  .zone b { display: block; font-size: 1.15rem; }
+  .zone span { font-size: 0.8rem; color: var(--muted); }
+  .z-green { background: var(--green-soft); border-left: 4px solid var(--green); }
+  .z-amber { background: var(--amber-soft); border-left: 4px solid var(--amber); }
+  .z-red { background: var(--red-soft); border-left: 4px solid var(--red); }
+  .measured { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .status { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-weight: 500; }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 4px 0 0; }
+  #nomo { display: block; width: 100%; max-width: 440px; height: auto; margin: 6px auto 0; user-select: none; -webkit-user-select: none; }
+  #nomo .ax { stroke: var(--ink); stroke-width: 1.6; }
+  #nomo .tk { stroke: var(--ink); stroke-width: 1; }
+  #nomo text.tl { fill: var(--ink); font-size: 10.5px; font-family: inherit; }
+  #nomo text.ttl { fill: var(--ink); font-size: 12.5px; font-weight: 600; font-family: inherit; }
+  #nomo text.pill { fill: var(--ink); font-size: 11.5px; font-weight: 600; font-family: inherit; }
+  #nomo .pillbg { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
+  #nomo .ln { stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; }
+  #nomo .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2.5; }
+  #nomo .dia { fill: var(--ink); stroke: var(--surface); stroke-width: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Peak flow nomogram</h1>
+  <p class="sub">Pick a population, then type values or drag the dots on the chart.</p>
+
+  <section class="card" aria-label="Inputs">
+    <div class="fields">
+      <div class="field full">
+        <label for="pop">Population (reference equation)</label>
+        <select id="pop">
+          <option value="sg">Chinese – Singapore</option>
+          <option value="hk">Chinese – Hong Kong</option>
+          <option value="in">Indian adults</option>
+          <option value="eu">European / Caucasian (Nunn &amp; Gregg)</option>
+          <option value="ug">East African – Uganda</option>
+        </select>
+        <p class="note" id="popnote"></p>
+      </div>
+      <div class="field full">
+        <span class="lbl" id="gl">Gender</span>
+        <div class="seg" role="group" aria-labelledby="gl">
+          <button type="button" id="gM" aria-pressed="true">Male</button>
+          <button type="button" id="gF" aria-pressed="false">Female</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="age">Age (years)</label>
+        <input id="age" type="number" inputmode="numeric" step="1" value="40">
+      </div>
+      <div class="field">
+        <label for="height">Height</label>
+        <div class="row">
+          <input id="height" type="number" inputmode="decimal" step="0.1" value="170">
+          <select id="unit" aria-label="Height unit">
+            <option value="cm">cm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <p class="err" id="err" role="alert" hidden></p>
+  </section>
+
+  <section class="card" aria-label="Nomogram">
+    <h2 id="ntitle">Nomogram</h2>
+    <p class="note">Drag the dot on height, age or PEF. The line always joins the three scales.</p>
+    <p class="note" id="foldnote" hidden></p>
+    <svg id="nomo" viewBox="0 0 380 600" role="img" aria-label="Nomogram with height, age and peak flow scales joined by a line">
+      <g id="st"></g>
+      <g id="dyn" style="pointer-events:none"></g>
+    </svg>
+    <p class="note">The diamond on the PEF scale marks your measured value, if entered below.</p>
+  </section>
+
+  <section class="card result" aria-live="polite" aria-label="Result">
+    <p class="empty" id="empty" hidden>Enter a valid age and height to see the predicted value.</p>
+    <div id="out">
+      <div class="lbl">Predicted PEF</div>
+      <div class="big"><span id="pred">0</span><small>L/min</small></div>
+      <p class="note" id="sd"></p>
+      <div class="zones">
+        <div class="zone z-green"><b id="zg">–</b><span>Green: 80% or more</span></div>
+        <div class="zone z-amber"><b id="za">–</b><span>Yellow: 50–79%</span></div>
+        <div class="zone z-red"><b id="zr">–</b><span>Red: below 50%</span></div>
+      </div>
+      <div class="measured">
+        <label for="meas">Measured PEF (optional, L/min)</label>
+        <input id="meas" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 450">
+        <div class="status" id="status" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note" id="formula"></p>
+  <p class="note">Reference equations come from different studies, populations and peak flow meter scales (older Wright scale vs EU scale). Choose the population closest to the person and compare readings from the same type of meter. For information only. Not a diagnosis; ask a clinician to interpret results.</p>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var svg = $("nomo");
+
+  var HMIN = 135, HMAX = 190;               // height range in cm
+  var XL = 64, XR = 292, TOP = 56, SPAN = 520;
+
+  // Each model: PEF (or ln PEF when log is true) = c + uh(height cm) + ua(age)
+  function linModel(c, aCm, bAge, sd, txt) {
+    return { c: c, log: false, sd: sd, txt: txt,
+      uh: function (h) { return aCm * h; },
+      ua: function (a) { return bAge * a; } };
+  }
+  function logModel(c, kh, ba, bl, txt) {
+    return { c: c, log: true, sd: null, txt: txt,
+      uh: function (h) { return -kh / h; },
+      ua: function (a) { return ba * a + bl * Math.log(a); } };
+  }
+  var POPS = {
+    sg: {
+      label: "Chinese – Singapore", ages: [15, 70],
+      note: "Printed nomogram for adult Chinese in Singapore. Ages 15–70.",
+      M: linModel(-72.1, 9.8 / 2.54, -1.2, 59.4, "Male PEF (L/min) = −72.1 + 9.8 × height (in) − 1.2 × age. SD ±59.4."),
+      F: linModel(159, 5 / 2.54, -1, 46.3, "Female PEF (L/min) = 159 + 5 × height (in) − age. SD ±46.3.")
+    },
+    hk: {
+      label: "Chinese – Hong Kong", ages: [18, 65],
+      note: "Hong Kong Chinese, EU-scale meters (Chan et al., 2009). Fitted on ages 6–65, so the age term is positive; be cautious with older adults.",
+      M: linModel(-543.707, 5.784, 1.681, null, "Male PEF (L/min) = −543.707 + 1.681 × age + 5.784 × height (cm)."),
+      F: linModel(-274.267, 3.699, 1.390, null, "Female PEF (L/min) = −274.267 + 1.390 × age + 3.699 × height (cm).")
+    },
+    "in": {
+      label: "Indian adults", ages: [18, 70],
+      note: "Indian adults, EU-scale meter. Age limits shown here are display limits.",
+      M: linModel(0, 3.206, -1.807, null, "Male PEF (L/min) = 3.206 × height (cm) − 1.807 × age."),
+      F: linModel(0, 2.368, -1.454, null, "Female PEF (L/min) = 2.368 × height (cm) − 1.454 × age.")
+    },
+    eu: {
+      label: "European / Caucasian", ages: [15, 85],
+      note: "Nunn & Gregg (BMJ 1989), healthy non-smoking Caucasian adults aged 15–85.",
+      M: logModel(5.48, 74.7, -0.0151, 0.544, "Male PEF (L/min) = exp(5.48 + 0.544 ln age − 0.0151 age − 74.7 / height in cm)."),
+      F: logModel(5.63, 58.8, -0.012, 0.376, "Female PEF (L/min) = exp(5.63 + 0.376 ln age − 0.012 age − 58.8 / height in cm).")
+    },
+    ug: {
+      label: "East African – Uganda", ages: [18, 80],
+      note: "Ugandan adults (2015 study, Nunn-style log model). Age limits shown here are display limits.",
+      M: logModel(6.188, 199.945, -0.019, 0.557, "Male PEF (L/min) = exp(6.188 − 0.019 age + 0.557 ln age − 199.945 / height in cm)."),
+      F: logModel(5.948, 85.147, -0.014, 0.317, "Female PEF (L/min) = exp(5.948 − 0.014 age + 0.317 ln age − 85.147 / height in cm).")
+    }
+  };
+
+  var S = { pop: "sg", sex: "M", age: 40, h: 170, unit: "cm" };
+  var G, f, valid = true, drag = null;
+
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function n1(v) { return v.toFixed(1); }
+  function bisect(fn, target, lo, hi) {
+    var fl = fn(lo), fh = fn(hi), inc = fh >= fl;
+    target = clamp(target, Math.min(fl, fh), Math.max(fl, fh));
+    var a = lo, b = hi;
+    for (var i = 0; i < 60; i++) {
+      var m = (a + b) / 2;
+      if ((fn(m) < target) === inc) a = m; else b = m;
+    }
+    return (a + b) / 2;
+  }
+
+  function geom() {
+    var pop = POPS[S.pop], amin = pop.ages[0], amax = pop.ages[1], a;
+    var imax = amin, imin = amin;
+    for (a = amin; a <= amax; a++) {
+      if (f.ua(a) > f.ua(imax)) imax = a;
+      if (f.ua(a) < f.ua(imin)) imin = a;
+    }
+    var apk = null;
+    if (imax > amin && imax < amax) apk = imax;
+    else if (imin > amin && imin < amax) apk = imin;
+    var uaMin = f.ua(imin), uaMax = f.ua(imax);
+    var uhLo = f.uh(HMIN), uhHi = f.uh(HMAX);
+    var kH = SPAN / (uhHi - uhLo);
+    var kZ = SPAN / ((uhHi - uhLo) + (uaMax - uaMin));
+    var t = kH / (kH + kZ);
+    var Zmax = f.c + uhHi + uaMax, Zmin = f.c + uhLo + uaMin;
+    var Cg = TOP + kZ * Zmax;
+    var kA = (1 - t) * kH;
+    var Y0 = (1 - t) * (TOP - kH * uhLo) + t * (Cg - kZ * f.c);
+    return {
+      amin: amin, amax: amax, apk: apk, folded: apk !== null,
+      uaMin: uaMin, uaMax: uaMax, uhLo: uhLo, kH: kH, kZ: kZ, t: t, kA: kA,
+      Zmin: Zmin, Zmax: Zmax, Cg: Cg, Y0: Y0, xM: XL + t * (XR - XL)
+    };
+  }
+  function yH(h) { return TOP + G.kH * (f.uh(h) - G.uhLo); }
+  function yA(a) { return G.Y0 - G.kA * f.ua(a); }
+  function yZ(z) { return G.Cg - G.kZ * z; }
+  function zOf(p) { return f.log ? Math.log(p) : p; }
+  function pOf(z) { return f.log ? Math.exp(z) : z; }
+  function curZ() { return f.c + f.uh(S.h) + f.ua(S.age); }
+  function pred() { return pOf(curZ()); }
+
+  function T(x, y, t, c, a) { return '<text x="' + n1(x) + '" y="' + n1(y) + '" class="' + c + '" text-anchor="' + a + '">' + t + '</text>'; }
+  function L(x1, y1, x2, y2, c) { return '<line x1="' + n1(x1) + '" y1="' + n1(y1) + '" x2="' + n1(x2) + '" y2="' + n1(y2) + '" class="' + c + '"/>'; }
+
+  function ageAxis(lo, hi, ax, side) {
+    var s = L(ax, yA(lo), ax, yA(hi), "ax"), lastY = -1e9, a, y, len;
+    for (a = lo; a <= hi; a++) {
+      y = yA(a); len = a % 10 === 0 ? 10 : (a % 5 === 0 ? 7 : 4);
+      s += L(ax, y, ax + side * len, y, "tk");
+      if (a % 5 === 0 && Math.abs(y - lastY) >= 13) {
+        s += T(ax + side * 13, y + 3.5, a, "tl", side < 0 ? "end" : "start");
+        lastY = y;
+      }
+    }
+    return s;
+  }
+
+  function buildStatic() {
+    var s = "", i, y, len, xM = G.xM;
+    // Height
+    s += T(XL, TOP - 34, "Height", "ttl", "middle") + T(XL - 12, TOP - 16, "cm", "tl", "end") + T(XL + 9, TOP - 16, "in", "tl", "start");
+    s += L(XL, yH(HMIN), XL, yH(HMAX), "ax");
+    for (i = HMIN; i <= HMAX; i++) {
+      y = yH(i); len = i % 10 === 0 ? 10 : (i % 5 === 0 ? 7 : 4);
+      s += L(XL - len, y, XL, y, "tk");
+      if (i % 10 === 0) s += T(XL - 13, y + 3.5, i, "tl", "end");
+    }
+    for (i = Math.ceil(HMIN / 2.54); i <= Math.floor(HMAX / 2.54); i++) {
+      y = yH(i * 2.54);
+      s += L(XL, y, XL + 6, y, "tk") + T(XL + 9, y + 3.5, i, "tl", "start");
+    }
+    // Age
+    var yTop = G.Y0 - G.kA * G.uaMax, yBot = G.Y0 - G.kA * G.uaMin;
+    s += T(xM, yTop - 16, "Age (yrs)", "ttl", "middle");
+    if (!G.folded) {
+      s += ageAxis(G.amin, G.amax, xM, f.ua(G.amax) < f.ua(G.amin) ? 1 : 1);
+    } else {
+      s += ageAxis(G.amin, G.apk, xM - 6, -1) + ageAxis(G.apk, G.amax, xM + 6, 1);
+    }
+    // PEF
+    s += T(XR, TOP - 34, (S.sex === "M" ? "Male" : "Female") + " PEF", "ttl", "middle") + T(XR, TOP - 16, "L/min", "tl", "middle");
+    s += L(XR, TOP, XR, TOP + SPAN, "ax");
+    var Pmin = pOf(G.Zmin), Pmax = pOf(G.Zmax), lastY = -1e9, p;
+    for (p = Math.ceil(Pmin / 5) * 5; p <= Pmax; p += 5) {
+      y = yZ(zOf(p)); len = p % 10 === 0 ? 8 : 4;
+      s += L(XR, y, XR + len, y, "tk");
+      if (p % 10 === 0 && Math.abs(y - lastY) >= 13) { s += T(XR + 11, y + 3.5, p, "tl", "start"); lastY = y; }
+    }
+    // Hit areas
+    function hit(k, x, w, y1, y2) {
+      return '<rect data-k="' + k + '" x="' + n1(x) + '" y="' + n1(y1) + '" width="' + w + '" height="' + n1(y2 - y1) + '" fill="transparent" style="cursor:ns-resize;touch-action:none"/>';
+    }
+    s += hit("h", XL - 30, 60, TOP - 8, TOP + SPAN + 8);
+    if (!G.folded) s += hit("a", xM - 22, 44, yTop - 8, yBot + 8);
+    else s += hit("a1", xM - 30, 30, yTop - 8, yBot + 8) + hit("a2", xM, 30, yTop - 8, yBot + 8);
+    s += hit("p", XR - 22, 44, TOP - 8, TOP + SPAN + 8);
+    $("st").innerHTML = s;
+  }
+
+  function pill(x, y, text, anchor) {
+    var w = text.length * 6.9 + 12;
+    var x0 = anchor === "end" ? x - w : x;
+    return '<rect class="pillbg" x="' + n1(x0) + '" y="' + n1(y - 9) + '" width="' + n1(w) + '" height="18" rx="9"/>' +
+           '<text class="pill" x="' + n1(x0 + w / 2) + '" y="' + n1(y + 4) + '" text-anchor="middle">' + text + '</text>';
+  }
+
+  function renderNomo() {
+    var p = pred(), d = "";
+    var Pmin = pOf(G.Zmin), Pmax = pOf(G.Zmax);
+    var y1 = yH(S.h), y2 = yA(S.age), y3 = yZ(curZ());
+    function band(lo, hi, col) {
+      lo = Math.max(lo, Pmin); hi = Math.min(hi, Pmax);
+      if (hi <= lo) return "";
+      var ya = yZ(zOf(hi)), yb = yZ(zOf(lo));
+      return '<rect x="' + (XR - 11) + '" y="' + n1(ya) + '" width="6" height="' + n1(yb - ya) + '" style="fill:var(--' + col + ')"/>';
+    }
+    d += band(p * 0.8, 1e9, "green") + band(p * 0.5, p * 0.8, "amber") + band(-1e9, p * 0.5, "red");
+    d += L(XL, y1, XR, y3, "ln");
+    var m = parseFloat($("meas").value);
+    if (isFinite(m) && m > 0) {
+      var my = clamp(yZ(zOf(m)), TOP, TOP + SPAN);
+      d += '<path class="dia" d="M' + XR + ' ' + n1(my - 7) + ' L' + (XR + 7) + ' ' + n1(my) + ' L' + XR + ' ' + n1(my + 7) + ' L' + (XR - 7) + ' ' + n1(my) + ' Z"/>';
+    }
+    d += '<circle class="dot" cx="' + XL + '" cy="' + n1(y1) + '" r="8"/>';
+    d += '<circle class="dot" cx="' + n1(G.xM) + '" cy="' + n1(y2) + '" r="8"/>';
+    d += '<circle class="dot" cx="' + XR + '" cy="' + n1(y3) + '" r="8"/>';
+    var hTxt = S.unit === "cm" ? Math.round(S.h) + " cm" : (S.h / 2.54).toFixed(1) + " in";
+    d += pill(XL + 30, y1, hTxt, "start");
+    d += pill(G.xM - (G.folded ? 38 : 12), y2, S.age + " yrs", "end");
+    d += pill(XR + 12, y3, String(Math.round(p)), "start");
+    $("dyn").innerHTML = d;
+  }
+
+  function renderResult() {
+    $("empty").hidden = valid;
+    $("out").hidden = !valid;
+    if (!valid) return;
+    var p = pred();
+    $("pred").textContent = Math.round(p);
+    if (f.sd) {
+      $("sd").textContent = "Typical range (±1 SD): " + Math.round(p - f.sd) + " to " + Math.round(p + f.sd) + " L/min";
+      $("sd").hidden = false;
+    } else { $("sd").hidden = true; }
+    $("zg").textContent = "≥ " + Math.round(p * 0.8);
+    $("za").textContent = Math.round(p * 0.5) + "–" + (Math.round(p * 0.8) - 1);
+    $("zr").textContent = "< " + Math.round(p * 0.5);
+    var m = parseFloat($("meas").value), st = $("status");
+    if (isFinite(m) && m > 0) {
+      var pct = m / p * 100, cls, txt;
+      if (pct >= 80) { cls = "z-green"; txt = "Green zone"; }
+      else if (pct >= 50) { cls = "z-amber"; txt = "Yellow zone"; }
+      else { cls = "z-red"; txt = "Red zone"; }
+      st.className = "status " + cls;
+      st.textContent = Math.round(pct) + "% of predicted. " + txt + ".";
+      st.hidden = false;
+    } else { st.hidden = true; }
+  }
+
+  function render() { renderNomo(); renderResult(); }
+
+  function syncInputs() {
+    $("age").value = S.age;
+    $("height").value = S.unit === "cm" ? Math.round(S.h) : (S.h / 2.54).toFixed(1);
+    $("err").hidden = true;
+    valid = true;
+  }
+  function setH(h) {
+    h = clamp(h, HMIN, HMAX);
+    S.h = S.unit === "cm" ? Math.round(h) : Math.round(h / 2.54 * 10) / 10 * 2.54;
+    S.h = clamp(S.h, HMIN, HMAX);
+  }
+  function setAge(a) { S.age = clamp(Math.round(a), G.amin, G.amax); }
+
+  function applyY(k, y) {
+    if (k === "h") {
+      setH(bisect(f.uh, G.uhLo + (y - TOP) / G.kH, HMIN, HMAX));
+    } else if (k === "a" || k === "a1" || k === "a2") {
+      var ua = (G.Y0 - y) / G.kA, lo = G.amin, hi = G.amax;
+      if (k === "a1") hi = G.apk; else if (k === "a2") lo = G.apk;
+      setAge(bisect(f.ua, ua, lo, hi));
+    } else {
+      var uaT = (G.Cg - y) / G.kZ - f.c - f.uh(S.h), lo2 = G.amin, hi2 = G.amax;
+      if (G.folded) { if (S.age > G.apk) lo2 = G.apk; else hi2 = G.apk; }
+      setAge(bisect(f.ua, uaT, lo2, hi2));
+    }
+    syncInputs();
+    render();
+  }
+  function svgY(e) {
+    var pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse()).y;
+  }
+  svg.addEventListener("pointerdown", function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute("data-k");
+    if (!k) return;
+    drag = k;
+    try { e.target.setPointerCapture(e.pointerId); } catch (x) {}
+    applyY(k, svgY(e));
+    e.preventDefault();
+  });
+  svg.addEventListener("pointermove", function (e) { if (drag) applyY(drag, svgY(e)); });
+  function endDrag() { drag = null; }
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+
+  function setModel() {
+    var pop = POPS[S.pop];
+    f = pop[S.sex];
+    S.age = clamp(S.age, pop.ages[0], pop.ages[1]);
+    G = geom();
+    $("gM").setAttribute("aria-pressed", S.sex === "M");
+    $("gF").setAttribute("aria-pressed", S.sex === "F");
+    $("popnote").textContent = pop.note;
+    $("ntitle").textContent = "Nomogram: " + pop.label;
+    $("formula").textContent = "Equation used. " + f.txt;
+    $("age").min = pop.ages[0]; $("age").max = pop.ages[1];
+    var fn = $("foldnote");
+    if (G.folded) {
+      fn.textContent = "In this model PEF rises and then falls with age, so the age scale has two branches: left for ages " + G.amin + "–" + G.apk + ", right for " + G.apk + " and older. Drag on the branch that matches the age.";
+      fn.hidden = false;
+    } else { fn.hidden = true; }
+    buildStatic();
+    syncInputs();
+    render();
+  }
+
+  function onType() {
+    var pop = POPS[S.pop];
+    var age = parseFloat($("age").value);
+    var hv = parseFloat($("height").value);
+    var hCm = isFinite(hv) ? (S.unit === "cm" ? hv : hv * 2.54) : NaN;
+    var err = $("err"), msg = "";
+    if (!isFinite(age) || !isFinite(hCm)) { valid = false; }
+    else if (age < pop.ages[0] || age > pop.ages[1]) {
+      msg = "For this population, age must be between " + pop.ages[0] + " and " + pop.ages[1] + "."; valid = false;
+    } else if (hCm < HMIN || hCm > HMAX) {
+      msg = "Height must be between " + HMIN + " and " + HMAX + " cm (" + (HMIN / 2.54).toFixed(0) + "–" + (HMAX / 2.54).toFixed(0) + " in)."; valid = false;
+    } else {
+      valid = true;
+      S.age = Math.round(age);
+      S.h = hCm;
+    }
+    err.textContent = msg; err.hidden = !msg;
+    render();
+  }
+
+  $("pop").addEventListener("change", function () { S.pop = $("pop").value; setModel(); });
+  $("gM").addEventListener("click", function () { S.sex = "M"; setModel(); });
+  $("gF").addEventListener("click", function () { S.sex = "F"; setModel(); });
+  $("age").addEventListener("input", onType);
+  $("height").addEventListener("input", onType);
+  $("meas").addEventListener("input", render);
+  $("unit").addEventListener("change", function () {
+    S.unit = $("unit").value;
+    syncInputs();
+    render();
+  });
+
+  setModel();
+})();
+</script>
+</body>
+</html>
