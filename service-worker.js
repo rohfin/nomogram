@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomogram-v1';
+const CACHE_NAME = 'nomogram-v2';
 const APP_SHELL = [
   './',
   './index.html',
