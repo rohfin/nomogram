@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Peak Flow Nomogram calculator for adults with population-specific reference equations.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Peak Flow Nomogram</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/nomogram-icon.svg">
+<link rel="apple-touch-icon" href="./icons/nomogram-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -155,13 +162,21 @@
   </section>
 
   <p class="note" id="formula"></p>
-  <p class="note">Reference equations come from different studies, populations and peak flow meter scales (older Wright scale vs EU scale). Choose the population closest to the person and compare readings from the same type of meter. For information only. Not a diagnosis; ask a clinician to interpret results.</p>
+  <p class="note">Reference equations come from different studies, populations and peak flow meter scales (older Wright scale vs EU scale). Choose the population closest to the person and compare the predicted value with the measured value to assess airflow limitation.</p>
 </main>
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var svg = $("nomo");
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./service-worker.js").catch(function (error) {
+        console.warn("Service worker registration failed:", error);
+      });
+    });
+  }
 
   var HMIN = 135, HMAX = 190;               // height range in cm
   var XL = 64, XR = 292, TOP = 56, SPAN = 520;
@@ -437,7 +452,7 @@
     $("age").min = pop.ages[0]; $("age").max = pop.ages[1];
     var fn = $("foldnote");
     if (G.folded) {
-      fn.textContent = "In this model PEF rises and then falls with age, so the age scale has two branches: left for ages " + G.amin + "–" + G.apk + ", right for " + G.apk + " and older. Drag on the branch that matches the age.";
+      fn.textContent = "In this model PEF rises and then falls with age, so the age scale has two branches: left for ages " + G.amin + "–" + G.apk + ", right for " + G.apk + " and older. Drag on either branch to move the age marker.";
       fn.hidden = false;
     } else { fn.hidden = true; }
     buildStatic();
